@@ -7,19 +7,22 @@ struct pixel{
 	unsigned char b;
 };
 
-int main()
-{
-
+int main(){
+	char *arquivoentrada = malloc(100);
 	FILE *arqin,*arqout;
-	
+
+	/* ------------------------------*/
+	/* Solicita o arquivo de entrada */
+	/* ----------------------------- */
 	//arquivo de entrada
-	arqin = fopen("st1012.bmp","rb");
-	
+	printf("Digite o nome do arquivo: \n");
+	scanf("%s",arquivoentrada);
+	arqin = fopen(arquivoentrada,"rb");
 	//valida se o arquivo de entrada existe
 	if(arqin==NULL)  printf("Erro na leitura do arquivo.");
 	
 	//arquivo de saida
-	arqout = fopen("st1012_alter.bmp","wb");
+	arqout = fopen("novo","wb");
 	
 	int offset,altura,largura;
 	
