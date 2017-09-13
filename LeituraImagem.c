@@ -29,6 +29,7 @@ typedef struct cabecalho{
 } Cabecalho;
 
 int main(){
+	
 	char *arquivoentrada = malloc(100);
 	FILE *arqin,*arqout;
 		
@@ -103,21 +104,20 @@ int main(){
 	/* --------------------------- */
 	
 	
-	/* --------------------------- */
-	/*  Copia restante do arquivo  */
-	/* --------------------------- */
+	/* ------------------------------------------ */
+	/*  Monta dados da imagem lida em uma Struct  */
+	/* ------------------------------------------ */
 	unsigned char red,green,blue,media;	
 	
 	Pixel *imagem[(*cabecalho).altura_img][(*cabecalho).largura_img];
 	
 	int lin =0,col=0;
 	
-	//Monta dados da imagem lida em uma Struct 
-	while(fread(&red,sizeof(red),1,arqin)!=0)
+	while(fread(&red,sizeof(blue),1,arqin)!=0)
 	{
 		
 		fread(&green,sizeof(green),1,arqin);
-		fread(&blue,sizeof(blue),1,arqin);
+		fread(&blue,sizeof(red),1,arqin);
 		
 		media = (red+green+blue)/3;				
 		
@@ -141,12 +141,11 @@ int main(){
         /* ------------------------------- */
 	/*  Transforma para tons de cinza  */
 	/* ------------------------------- */
-	//TransformaTonsdeCinza -- Depois isso tem que ser transformado em funçáo
 	for(i=0;i<lin;i++){
 		for(j=0;j<(*cabecalho).largura_img;j++){
 			
 			if(i < lin || (i==lin && j<col)){
-				double media = ((imagem[i][j])->r + (imagem[i][j])->g +(imagem[i][j])->b) / 3;
+				double media = (((imagem[i][j])->r * 0.3)+ ((imagem[i][j])->g * 0.59)+((imagem[i][j])->b) * 0.11);
 
 				(imagem[i][j])->r = (int) media;
 				(imagem[i][j])->g = (int) media;
@@ -155,20 +154,6 @@ int main(){
 		}
 	}
 	
-	//Gera imagem apartir da Struct	
-	//Dados
-	fseek(arqout,(*cabecalho).deslocamento,SEEK_SET);
-	for(i=0;i<lin;i++){
-		for(j=0;j<(*cabecalho).largura_img;j++){
-			
-			if(i < lin || (i==lin && j<col)){
-				fwrite(&(imagem[i][j])->r,sizeof(red),1,arqout);
-				fwrite(&(imagem[i][j])->g,sizeof(green),1,arqout);
-				fwrite(&(imagem[i][j])->b,sizeof(blue),1,arqout);
-			}
-		}
-	}
-
 	/* ------------------------------- */
 	/* 	 Busca Limite superior     */
 	/* ------------------------------- */
@@ -182,12 +167,12 @@ int main(){
 			if(i < lin || (i==lin && j<col)){
 				if((imagem[i][j])->r > 30 && lin-i>68 ){
 					limite[lin-i]++;				
-					printf("|%d - %d> %d |\t",i,j,(imagem[i][j])->r );
+					//printf("|%d - %d> %d |\t",i,j,(imagem[i][j])->r );
 					break;
 				}
 			}
 		}
-	 	printf("\n");
+	 	//printf("\n");
 	}
 	for(i=0;i<lin;i++){
 		if(limite[i] > limite[limite_sup]){
@@ -207,12 +192,12 @@ int main(){
 			if(i < lin || (i==lin && j<col)){
 				if((imagem[i][j])->r > 30){
 					limite[i]++;				
-					printf("|%d - %d> %d |\t",i,j,(imagem[i][j])->r );
+					//printf("|%d - %d> %d |\t",i,j,(imagem[i][j])->r );
 					break;
 				}
 			}
 		}
-	 	printf("\n");
+	 	//printf("\n");
 	}
 	for(i=0;i<lin;i++){
 		if(limite[i] > limite[limite_inf]){
@@ -225,7 +210,43 @@ int main(){
 	printf("LIMITE_INFERIOR->%d \n",limite_inf);
 	printf("*******************************\n");
 
+	/* ----------------------------------------- */
+	/*  Segmentação da Imagem em Preto e Branco  */
+	/* ----------------------------------------- */
+	for(i=0;i<lin;i++){
+		for(j=0;j<(*cabecalho).largura_img;j++){
+			
+			if(i < lin || (i==lin && j<col)){
+								
+				int cor_seg;
+				
+				if((imagem[i][j])->r > 100){
+					cor_seg = 255;				
+				}
+				else cor_seg = 0;
+				
+				(imagem[i][j])->r =  cor_seg;
+				(imagem[i][j])->g =  cor_seg;
+				(imagem[i][j])->b =  cor_seg;
+			}
+		}
+	}
 	
+	//Gera imagem apartir da Struct	
+	//Dados
+	fseek(arqout,(*cabecalho).deslocamento,SEEK_SET);
+	for(i=0;i<lin;i++){
+		for(j=0;j<(*cabecalho).largura_img;j++){
+			
+			if(i < lin || (i==lin && j<col)){
+				fwrite(&(imagem[i][j])->b,sizeof(blue),1,arqout);
+				fwrite(&(imagem[i][j])->g,sizeof(green),1,arqout);
+				fwrite(&(imagem[i][j])->r,sizeof(red),1,arqout);
+			}
+
+		}
+	}	
+
 	fclose(arqin);
 	fclose(arqout);
 	
