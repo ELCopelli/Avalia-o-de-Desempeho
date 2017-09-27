@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<stdlib.h>
 
 typedef struct pixel{
 	unsigned char r;
@@ -28,8 +29,8 @@ typedef struct cabecalho{
 	int		num_cores_imp;
 } Cabecalho;
 
-void escrevesaida(FILE *Arquivo, char *linha){
-	fprintf(Arquivo,"%s \n",linha);
+void escrevesaida(FILE *Arquivo, char *linha,int limite_sup, int limite_inf){
+	fprintf(Arquivo,"%s %d %d \n",linha,limite_sup,limite_inf);
 }
 
 int main(){
@@ -257,7 +258,8 @@ int main(){
 	}	
 	//Formato do arquivo
 	//<nome do arquivo> <linhainicial> <linhafinal> <número de nós encontrados> <L1> <C1> <L2> <C2> ...<Ln><Cn>
-	escrevesaida(txtsaida, arquivoentrada);
+
+	escrevesaida(txtsaida, arquivoentrada,limite_sup,limite_inf);
 	
 
 	fclose(arqin);
