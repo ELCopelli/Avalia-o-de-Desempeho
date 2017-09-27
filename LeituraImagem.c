@@ -28,10 +28,14 @@ typedef struct cabecalho{
 	int		num_cores_imp;
 } Cabecalho;
 
+void escrevesaida(FILE *Arquivo, char *linha){
+	fprintf(Arquivo,"%s \n",linha);
+}
+
 int main(){
 	
 	char *arquivoentrada = malloc(100);
-	FILE *arqin,*arqout;
+	FILE *arqin,*arqout,*txtsaida;
 		
 
 	/* ------------------------------*/
@@ -48,6 +52,11 @@ int main(){
 	
 	//arquivo de saida
 	arqout = fopen("novo","wb");
+	txtsaida = fopen("saida.txt","w");
+	if(txtsaida == NULL){
+		printf("Erro na criação do arquivo.");
+		exit;
+	}
 	
 	//Busca dados do cabeçalho da imagem e grama em estrutura	
 	Cabecalho *cabecalho = malloc(sizeof(Cabecalho));
@@ -246,6 +255,10 @@ int main(){
 
 		}
 	}	
+	//Formato do arquivo
+	//<nome do arquivo> <linhainicial> <linhafinal> <número de nós encontrados> <L1> <C1> <L2> <C2> ...<Ln><Cn>
+	escrevesaida(txtsaida, arquivoentrada);
+	
 
 	fclose(arqin);
 	fclose(arqout);
