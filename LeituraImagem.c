@@ -164,11 +164,17 @@ int main(){
 			}
 		
 		}
-	
+	        
 
 		/* ------------------------------- */
 		/*  Transforma para tons de cinza  */
 		/* ------------------------------- */
+		int histograma[256];
+		int tot_pixels=0;
+		for (i=0;i<256;i++)
+		{
+			histograma[i]=0;
+		}	
 
 		for(i=0;i<lin;i++){
 			for(j=0;j<(*cabecalho).largura_img;j++){
@@ -179,6 +185,8 @@ int main(){
 					(imagem[i][j])->r = (int) media;
 					(imagem[i][j])->g = (int) media;
 					(imagem[i][j])->b = (int) media;
+					histograma[(int)media]++;
+					tot_pixels++;
 				}
 			}
 		}
@@ -241,6 +249,86 @@ int main(){
 	//	printf("LIMITE_INFERIOR->%d \n",limite_inf);
 	//	printf("*******************************\n");
 
+		/* ---------------------------------------------- */
+		/*  Cálula o valor limear para converter para PB  */
+		/* ---------------------------------------------- */
+		//Algoritmo de Otsu
+		int p;
+		int q;
+		int ind_WCV = 0;
+		float min_WCV = 10000000;
+		for(i=0;i<256;i++)
+		{
+			int lim=i-1;
+			int soma_cores_b=0;	
+			double aux_mb = 0;
+			double aux_o2b = 0;
+			double Wb = 0;
+			double Mb = 0;
+			double O2b = 0;
+
+			int soma_cores_f=0;	
+			double aux_mf = 0;
+			double aux_o2f = 0;
+			double Wf = 0;
+			double Mf = 0;
+			double O2f = 0;
+			
+			//Background
+			while(lim>=0)
+			{
+				soma_cores_b= soma_cores_b + histograma[lim];
+				aux_mb = aux_mb + (lim * histograma[lim]);			
+				lim--;		
+			}
+			if(soma_cores_b > 0)
+			{
+				Wb = (double)soma_cores_b / (double)tot_pixels;
+				Mb = (double)aux_mb / (double)soma_cores_b;
+		
+				lim = i-1;
+				while(lim>=0)
+				{
+					aux_o2b = aux_o2b + (((lim-Mb)*(lim-Mb)) * histograma[lim]);
+					lim--;		
+				}
+
+				O2b =  aux_o2b / (double)soma_cores_b;		
+			}      
+		
+			//Foreground
+			lim=i;
+			while(lim<256)
+			{
+				soma_cores_f = (double)soma_cores_f + (double)histograma[lim];
+				aux_mf = (double)aux_mf + (lim * histograma[lim]);			
+				lim++;		
+			}
+			if(soma_cores_f > 0)
+			{
+				Wf = (double)soma_cores_f / (double)tot_pixels;
+				Mf = (double)aux_mf / (double)soma_cores_f;
+				lim = i;
+
+				while(lim<256)
+				{
+					aux_o2f = aux_o2f + (((lim-Mf)*(lim-Mf)) * histograma[lim]);
+					lim++;		
+				}
+
+				O2f =  aux_o2f / (double)soma_cores_f;
+			}		
+			double WCV = (Wb*O2b) + (Wf*O2f);
+			if (WCV < min_WCV)
+			{
+				min_WCV = WCV;
+				ind_WCV = i;
+			}
+
+
+		}
+		printf("Linear-> %d\n",ind_WCV);
+
 		/* ----------------------------------------- */
 		/*  Segmentação da Imagem em Preto e Branco  */
 		/* ----------------------------------------- */
@@ -252,7 +340,7 @@ int main(){
 								
 					int cor_seg;
 				
-					if((imagem[i][j])->r > 100){
+					if((imagem[i][j])->r > ind_WCV){
 						cor_seg = 255;				
 					}
 					else cor_seg = 0;
