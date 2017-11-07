@@ -591,9 +591,20 @@ int main(){
 			//Calcula centro dos nós
 			for(i=0;i<qtde_nos;i++)
 			{
-			   informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
-			   informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;
-			   //printf("pos nó --> %d - %d \n",informacoes_nos[i].centro_vertical,informacoes_nos[i].centro_horizontal);
+			   
+				//desconsidera informações pequenas, com menos de x pixels
+				int num_pixel_desc = 2;
+				if(		( informacoes_nos[i].max_vertical - informacoes_nos[i].min_vertical) <= num_pixel_desc
+				   ||	( informacoes_nos[i].max_horizontal - informacoes_nos[i].min_horizontal) <= num_pixel_desc)
+				{
+					informacoes_nos[i].centro_vertical   = 0;
+			   		informacoes_nos[i].centro_horizontal = 0;
+				}
+				else
+				{
+					informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
+			   		informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;			   
+				}
 			}
 
 			//Conta quantos nós existem após o refinamento
@@ -605,23 +616,6 @@ int main(){
 					qtde_nos_finais++;
 				}
 			}
-
-			/* AUXILIAR  DEPOIS DA DE TIRAR */
-			//Gera imagem apartir da Struct	*/
-			//Dados
-			/*
-			fseek(arqout,(*cabecalho).deslocamento,SEEK_SET);
-			for(i=0;i<lin;i++){
-				for(j=0;j<(*cabecalho).largura_img;j++){
-
-					if(i < lin || (i==lin && j<col)){
-						fwrite(&(imagem[i][j])->b,sizeof(blue),1,arqout);
-						fwrite(&(imagem[i][j])->g,sizeof(green),1,arqout);
-						fwrite(&(imagem[i][j])->r,sizeof(red),1,arqout);
-					}
-
-				}
-			}*/
 			
 			//Formato do arquivo
 			//<nome do arquivo> <linhainicial> <linhafinal> <número de nós encontrados> <L1> <C1> <L2> <C2> ...<Ln><Cn>
@@ -631,20 +625,9 @@ int main(){
 			//Liberação de memória 
 			free(informacoes_nos);
 			free(cabecalho);
-			
-			//Isso é para desalocar a memoria da imagem (**Esse é o pulo do gato do estouro de memória que existia**)
-			//for(i=0;i<(*cabecalho).altura_img;i++){
-				//for(j=0;j<(*cabecalho).largura_img;j++){
-			//		free((imagem[i]));
-				//}
-			//}
-			
-           	free(*imagem);	
-			// free(*imagem);
-			free(imagem);
-			
-			fclose(arqin);
-			//fclose(arqout);
+		   	free(*imagem);	
+			free(imagem);			
+			fclose(arqin);		
 			
 		}
 	}
