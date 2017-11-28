@@ -2,6 +2,10 @@
 #include<stdlib.h>
 #include <dirent.h>
 #include <string.h>
+#include<omp.h>
+//#include <gperftools/profiler.h>
+
+#define NTHREADS 2
 
 	typedef struct pixel{
 		unsigned char r;
@@ -103,7 +107,10 @@
 		{
 			histograma[i]=0;
 		}
-			
+		
+		//omp_set_num_threads(NTHREADS);
+		//#pragma omp parallel for
+		
 		for(i=0;i<(*cabecalho).altura_img;i++){
 			for(j=0;j<(*cabecalho).largura_img;j++){
 					
@@ -351,8 +358,143 @@
 		}		
 	}
 
-int main(){
 
+	void refinamento_dados_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos){
+		int i,j;
+		for(i=(*cabecalho).altura_img-1;i>=0;i--){
+				for(j=(*cabecalho).largura_img-1;j>=0;j--){
+					if(matriz_nos[i][j] > 0){
+						int menor_no = matriz_nos[i][j];
+						if(i-1 >= 0){
+							if(matriz_nos[i-1][j] != 0 && matriz_nos[i-1][j] < menor_no ){
+								menor_no = matriz_nos[i-1][j];
+							}
+							if(j-1>=0 ){
+								if(matriz_nos[i-1][j-1] != 0 && matriz_nos[i-1][j-1] < menor_no ){
+									menor_no = matriz_nos[i-1][j-1];
+								}
+							}
+							if(j+1<(*cabecalho).largura_img){
+								if(matriz_nos[i-1][j+1]!= 0 && matriz_nos[i-1][j+1] < menor_no ){
+									menor_no = matriz_nos[i-1][j+1];
+								}
+							}
+						}
+						if(i+1 < (*cabecalho).altura_img){
+							if(matriz_nos[i+1][j]!=0 && matriz_nos[i+1][j] < menor_no ){
+								menor_no = matriz_nos[i+1][j];
+							}
+							if(j-1>=0){
+								if(matriz_nos[i+1][j-1]!=0 && matriz_nos[i+1][j-1] < menor_no  ){
+									menor_no = matriz_nos[i+1][j-1];
+								}
+							}
+							if(j+1<(*cabecalho).largura_img){
+								if(matriz_nos[i+1][j+1]!=0 && matriz_nos[i+1][j+1] < menor_no){
+									menor_no = matriz_nos[i+1][j+1];
+								}
+							}
+
+						}
+						if(j+1 < (*cabecalho).largura_img){
+							if(matriz_nos[i][j+1]!=0 && matriz_nos[i][j+1] < menor_no ){
+								menor_no = matriz_nos[i][j+1];
+							}
+						}
+						if(j-1 >= 0){
+							if(matriz_nos[i][j-1]!=0 && matriz_nos[i][j-1] < menor_no){
+								menor_no = matriz_nos[i][j-1];
+							}
+						}
+
+						matriz_nos[i][j] = menor_no;
+					}
+				}
+			}
+	}
+
+	void calcula_informacoes_nos(Cabecalho *cabecalho, int **matriz_nos, Inf_nos *informacoes_nos, int *qtde_nos_finais,int qtde_nos)
+	{
+		
+		int i, j;
+		for(i=0;i<qtde_nos;i++){	
+				informacoes_nos[i].min_vertical   = 0;
+				informacoes_nos[i].max_vertical   = 0;
+				informacoes_nos[i].min_horizontal = 0;
+				informacoes_nos[i].max_horizontal = 0;
+				informacoes_nos[i].centro_vertical   = 0;
+				informacoes_nos[i].centro_horizontal = 0;
+			}
+
+			//Controla as informações do de posicionamento dos nos
+			for(i=0;i<(*cabecalho).altura_img;i++){
+				for(j=0;j<(*cabecalho).largura_img;j++){
+
+					if(matriz_nos[i][j] > 0){
+							if(informacoes_nos[matriz_nos[i][j]-1].min_vertical == 0)
+							{
+								informacoes_nos[matriz_nos[i][j]-1].min_vertical = i;
+								informacoes_nos[matriz_nos[i][j]-1].max_vertical = i;
+								informacoes_nos[matriz_nos[i][j]-1].min_horizontal = j;
+								informacoes_nos[matriz_nos[i][j]-1].max_horizontal = j;
+							}
+							//Controle vertical
+							if(i < informacoes_nos[matriz_nos[i][j]-1].min_vertical)
+							{
+								informacoes_nos[matriz_nos[i][j]-1].min_vertical = i;
+							}
+							if(i > informacoes_nos[matriz_nos[i][j]-1].max_vertical)
+							{
+								informacoes_nos[matriz_nos[i][j]-1].max_vertical = i;
+							}
+							//Controle horizontal
+							if(j < informacoes_nos[matriz_nos[i][j]-1].min_horizontal)
+							{
+								informacoes_nos[matriz_nos[i][j]-1].min_horizontal = j;
+							}
+							if(j > informacoes_nos[matriz_nos[i][j]-1].max_horizontal)
+							{
+								informacoes_nos[matriz_nos[i][j]-1].max_horizontal = j;
+							}
+					}//Inf_nos *informacoes_nos = malloc(sizeof(Inf_nos) * 1);
+			
+				}
+			}
+		
+			printf("qtde_nos-> %d\n",qtde_nos);
+
+			//Calcula centro dos nós
+			for(i=0;i<qtde_nos;i++)
+			{
+			   
+				//desconsidera informações pequenas, com menos de x pixels
+				int num_pixel_desc = 2;
+				if(		( informacoes_nos[i].max_vertical - informacoes_nos[i].min_vertical) <= num_pixel_desc
+				   ||	( informacoes_nos[i].max_horizontal - informacoes_nos[i].min_horizontal) <= num_pixel_desc)
+				{
+					informacoes_nos[i].centro_vertical   = 0;
+			   		informacoes_nos[i].centro_horizontal = 0;
+				}
+				else
+				{
+					informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
+			   		informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;			   
+				}
+			}
+
+			//Conta quantos nós existem após o refinamento
+			*qtde_nos_finais =0;
+			for(i=0;i<qtde_nos;i++)
+			{
+				if(informacoes_nos[i].centro_vertical>0)
+				{
+					(*qtde_nos_finais)++;
+				}
+			}
+	}
+
+int main(){
+    //ProfilerStart("file.log");
 	char *direntrada = malloc(100);
 	char *arquivoentrada = malloc(100);
 	FILE *arqin,*arqout,*txtsaida;
@@ -368,8 +510,6 @@ int main(){
 	
 	int histograma[256];
 	int tot_pixels=0;	
-	
-
 	
 	/* ------------------------------*/
 	/* Solicita o arquivo de entrada */
@@ -468,11 +608,6 @@ int main(){
 
 			int limite_inf = calcula_limite_inferior ( &(*cabecalho), &(*imagem));			
 
-		//	printf("*******************************\n");
-		//	printf("LIMITE_SUPERIOS->%d \n",limite_sup);
-		//	printf("LIMITE_INFERIOR->%d \n",limite_inf);
-		//	printf("*******************************\n");
-
 			/* ----------------------------------------- */
 			/*  Monta matriz com informalções de nos     */
 			/* ----------------------------------------- */
@@ -489,144 +624,29 @@ int main(){
 			monta_matriz_nos (&(*cabecalho), &(*imagem), &(*matriz_nos),&qtde_nos,limite_sup,limite_inf);
 			
 			
-
 			/* ----------------------------------------- */
 			/*     Refina os dados de nós encontrados    */
 			/* ----------------------------------------- */
 			//se tem um nó ao ao redor, com númeração menor, assume a menor numeração - para casos onde não é possivel identificar o nó proximo pelo algoritmo principal
-			for(i=(*cabecalho).altura_img-1;i>=0;i--){
-				for(j=(*cabecalho).largura_img-1;j>=0;j--){
-					if(matriz_nos[i][j] > 0){
-						int menor_no = matriz_nos[i][j];
-						if(i-1 >= 0){
-							if(matriz_nos[i-1][j] != 0 && matriz_nos[i-1][j] < menor_no ){
-								menor_no = matriz_nos[i-1][j];
-							}
-							if(j-1>=0 ){
-								if(matriz_nos[i-1][j-1] != 0 && matriz_nos[i-1][j-1] < menor_no ){
-									menor_no = matriz_nos[i-1][j-1];
-								}
-							}
-							if(j+1<(*cabecalho).largura_img){
-								if(matriz_nos[i-1][j+1]!= 0 && matriz_nos[i-1][j+1] < menor_no ){
-									menor_no = matriz_nos[i-1][j+1];
-								}
-							}
-						}
-						if(i+1 < (*cabecalho).altura_img){
-							if(matriz_nos[i+1][j]!=0 && matriz_nos[i+1][j] < menor_no ){
-								menor_no = matriz_nos[i+1][j];
-							}
-							if(j-1>=0){
-								if(matriz_nos[i+1][j-1]!=0 && matriz_nos[i+1][j-1] < menor_no  ){
-									menor_no = matriz_nos[i+1][j-1];
-								}
-							}
-							if(j+1<(*cabecalho).largura_img){
-								if(matriz_nos[i+1][j+1]!=0 && matriz_nos[i+1][j+1] < menor_no){
-									menor_no = matriz_nos[i+1][j+1];
-								}
-							}
-
-						}
-						if(j+1 < (*cabecalho).largura_img){
-							if(matriz_nos[i][j+1]!=0 && matriz_nos[i][j+1] < menor_no ){
-								menor_no = matriz_nos[i][j+1];
-							}
-						}
-						if(j-1 >= 0){
-							if(matriz_nos[i][j-1]!=0 && matriz_nos[i][j-1] < menor_no){
-								menor_no = matriz_nos[i][j-1];
-							}
-						}
-
-						matriz_nos[i][j] = menor_no;
-					}
-				}
-			}
-
-
+			
+			refinamento_dados_nos(&(*cabecalho), &(*imagem), &(*matriz_nos));
+			
+			
 			/* ----------------------------------------- */
 			/*  Calcula informações e o centro dos nós   */
 			/* ----------------------------------------- */
+			
 			Inf_nos *informacoes_nos = malloc(sizeof(Inf_nos) * 1);			
 			informacoes_nos = realloc(informacoes_nos, qtde_nos * sizeof(Inf_nos));
-			for(i=0;i<qtde_nos;i++){	
-				informacoes_nos[i].min_vertical   = 0;
-				informacoes_nos[i].max_vertical   = 0;
-				informacoes_nos[i].min_horizontal = 0;
-				informacoes_nos[i].max_horizontal = 0;
-				informacoes_nos[i].centro_vertical   = 0;
-				informacoes_nos[i].centro_horizontal = 0;
-			}
-
-			//Controla as informações do de posicionamento dos nos
-			for(i=0;i<(*cabecalho).altura_img;i++){
-				for(j=0;j<(*cabecalho).largura_img;j++){
-
-					if(matriz_nos[i][j] > 0){
-							if(informacoes_nos[matriz_nos[i][j]-1].min_vertical == 0)
-							{
-								informacoes_nos[matriz_nos[i][j]-1].min_vertical = i;
-								informacoes_nos[matriz_nos[i][j]-1].max_vertical = i;
-								informacoes_nos[matriz_nos[i][j]-1].min_horizontal = j;
-								informacoes_nos[matriz_nos[i][j]-1].max_horizontal = j;
-							}
-							//Controle vertical
-							if(i < informacoes_nos[matriz_nos[i][j]-1].min_vertical)
-							{
-								informacoes_nos[matriz_nos[i][j]-1].min_vertical = i;
-							}
-							if(i > informacoes_nos[matriz_nos[i][j]-1].max_vertical)
-							{
-								informacoes_nos[matriz_nos[i][j]-1].max_vertical = i;
-							}
-							//Controle horizontal
-							if(j < informacoes_nos[matriz_nos[i][j]-1].min_horizontal)
-							{
-								informacoes_nos[matriz_nos[i][j]-1].min_horizontal = j;
-							}
-							if(j > informacoes_nos[matriz_nos[i][j]-1].max_horizontal)
-							{
-								informacoes_nos[matriz_nos[i][j]-1].max_horizontal = j;
-							}
-					}Inf_nos *informacoes_nos = malloc(sizeof(Inf_nos) * 1);
+			int qtde_nos_finais = 0;
 			
-				}
-			}
-
-			//Calcula centro dos nós
-			for(i=0;i<qtde_nos;i++)
-			{
-			   
-				//desconsidera informações pequenas, com menos de x pixels
-				int num_pixel_desc = 2;
-				if(		( informacoes_nos[i].max_vertical - informacoes_nos[i].min_vertical) <= num_pixel_desc
-				   ||	( informacoes_nos[i].max_horizontal - informacoes_nos[i].min_horizontal) <= num_pixel_desc)
-				{
-					informacoes_nos[i].centro_vertical   = 0;
-			   		informacoes_nos[i].centro_horizontal = 0;
-				}
-				else
-				{
-					informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
-			   		informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;			   
-				}
-			}
-
-			//Conta quantos nós existem após o refinamento
-			int qtde_nos_finais =0;
-			for(i=0;i<qtde_nos;i++)
-			{
-				if(informacoes_nos[i].centro_vertical>0)
-				{
-					qtde_nos_finais++;
-				}
-			}
+			printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
+			calcula_informacoes_nos(&(*cabecalho),&(*matriz_nos),informacoes_nos,&qtde_nos_finais,qtde_nos);
+			printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
+			/* ---------------------------------------------- */
+			/*  Escreve dados na imagem no arquivo de saída   */
+			/* ---------------------------------------------- */
 			
-			//Formato do arquivo
-			//<nome do arquivo> <linhainicial> <linhafinal> <número de nós encontrados> <L1> <C1> <L2> <C2> ...<Ln><Cn>
-
 			escrevesaida(txtsaida, arquivoentrada,limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
 
 			//Liberação de memória 
@@ -643,6 +663,7 @@ int main(){
 	closedir(dir);
 	fclose(txtsaida);
 	printf("Processamento dos arquivos finalizado! \n");
+	//ProfilerStop();
 	return 0;
 }
 
