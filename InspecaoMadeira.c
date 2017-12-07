@@ -3,7 +3,7 @@
 #include <dirent.h>
 #include <string.h>
 #include<omp.h>
-//#include <gperftools/profiler.h>
+#include <gperftools/profiler.h>
 
 #define NTHREADS 2
 
