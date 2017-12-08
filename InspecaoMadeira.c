@@ -61,8 +61,8 @@
 
 		Pixel **imagem;
 
-		unsigned char red,green,blue,media;
-		int i;		
+		unsigned char red,green,blue;
+		int i,j;		
 
 		imagem = (Pixel**) calloc((*cabecalho).altura_img , sizeof(Pixel*));
 
@@ -70,28 +70,56 @@
 			imagem[i] = (Pixel*) calloc((*cabecalho).largura_img , sizeof(Pixel));
 		}
 
-
-
 		int lin =0,col=0;
-
-		while(fread(&red,sizeof(blue),1,arqin)!=0)
-		{
-			fread(&green,sizeof(green),1,arqin);
-			fread(&blue,sizeof(red),1,arqin);
-
-			media = (red+green+blue)/3;
-
-			(imagem[lin][col]).r = red;
-			(imagem[lin][col]).g = green;
-			(imagem[lin][col]).b = blue;
-
-			col++;
-			if (col >= (*cabecalho).largura_img)
+		int id, nthr;
+		//#pragma omp parallel private (red,green,blue,lin,col) 
+		//{
+		//	fseek(arqin,54,SEEK_SET);
+		//	id = omp_get_thread_num();
+		//	nthr = omp_get_num_threads();
+			while(fread(&red,sizeof(blue),1,arqin)!=0)
 			{
-				lin++;
-				col=0;
+				fread(&green,sizeof(green),1,arqin);
+				fread(&blue,sizeof(red),1,arqin);
+
+				(imagem[lin][col]).r = red;
+				(imagem[lin][col]).g = green;
+				(imagem[lin][col]).b = blue;
+
+				col++;
+				if (col >= (*cabecalho).largura_img)
+				{
+					lin++;
+					col=0;
+				}
 			}
-		}
+		//}
+				
+		
+		/*#pragma omp parallel private (i, j,red,green,blue) 
+		{
+			fseek(arqin,54,SEEK_SET);
+			id = omp_get_thread_num();
+			nthr = omp_get_num_threads();
+		    
+			int altura_ini;
+			int altura_fin;*
+		
+			for (i = 0; i < (*cabecalho).altura_img; i++) {
+				for (j = 0; j < (*cabecalho).largura_img; j++) {
+					//	fseek(arqin,53+(sizeof(blue)*(i*((*cabecalho).largura_img*3)+j)),SEEK_SET);	
+					fread(&red,sizeof(blue),1,arqin);
+					fread(&green,sizeof(green),1,arqin);
+					fread(&blue,sizeof(red),1,arqin);
+					(imagem[i][j]).r = red;
+					(imagem[i][j]).g = green;
+					(imagem[i][j]).b = blue;
+				}
+			}
+		/*	printf("%d / %d \n",id, nthr);
+		
+		}*/
+		
 
 		return imagem;	
 
@@ -108,9 +136,10 @@
 			histograma[i]=0;
 		}
 		
+		(*tot_pixels) = (*cabecalho).altura_img * (*cabecalho).largura_img;
+		
 		//omp_set_num_threads(NTHREADS);
 		//#pragma omp parallel for
-		
 		for(i=0;i<(*cabecalho).altura_img;i++){
 			for(j=0;j<(*cabecalho).largura_img;j++){
 					
@@ -119,7 +148,6 @@
 					(imagem[i][j]).g = (int) media;
 					(imagem[i][j]).b = (int) media;
 					histograma[(int)media]++;
-					(*tot_pixels)++;
 				
 			}
 		}
@@ -461,7 +489,7 @@
 				}
 			}
 		
-			printf("qtde_nos-> %d\n",qtde_nos);
+			//printf("qtde_nos-> %d\n",qtde_nos);
 
 			//Calcula centro dos nós
 			for(i=0;i<qtde_nos;i++)
@@ -496,13 +524,12 @@
 int main(){
     //ProfilerStart("file.log");
 	char *direntrada = malloc(100);
-	char *arquivoentrada = malloc(100);
-	FILE *arqin,*arqout,*txtsaida;
+	FILE *arqout,*txtsaida;
 	DIR *dir;
 	struct dirent *lsdir;
 	
 	int num_imagem = 0;	
-	int i,j,p,q;
+	int a;
 	
 	double media;
 
@@ -518,7 +545,7 @@ int main(){
 	//arquivo de entrada
 	printf("Digite o nome do diretorio: \n");
 	//scanf("%s",direntrada);
-	direntrada = "imagens"; // CAMINHO DA IMAGEM FIXO PARA TESTES
+	direntrada = "imagens1"; // CAMINHO DA IMAGEM FIXO PARA TESTES
 	dir = opendir(direntrada);
 	printf("Processando as imagens no diretorio %s \n",direntrada);
 	//arquivo de saída
@@ -527,138 +554,167 @@ int main(){
 		printf("Erro na criação do arquivo.");
 		exit;
 	}
-
+	
+	//atribui os arquivos para o vetor de arquivos
+	int num_arquivos=0;
+	struct dirent *arquivos = malloc(sizeof(struct dirent) * 1);			
+    
 	while ( ( lsdir = readdir(dir) ) != NULL ) {
-		
-		num_imagem++;
-		
 		if ( !strcmp(lsdir->d_name, ".") || !strcmp(lsdir->d_name, "..") ){
-			//tratamento para quando o sistema acha "." e ".."
 		}
-		else{
-			
-			strcpy(arquivoentrada, direntrada);
-			strcat(arquivoentrada,"/");
-			strcat(arquivoentrada,lsdir->d_name);
+		else
+		{
+			num_arquivos++;
+			arquivos = realloc(arquivos, num_arquivos * sizeof(struct dirent));
+			arquivos[num_arquivos-1]=*lsdir;
+			printf("\nalocando-> %d %s",num_arquivos,arquivos[num_arquivos-1].d_name);
+		}
+	}
+	
+	
+		
+	//while ( ( lsdir = readdir(dir) ) != NULL ) {
+	omp_set_num_threads(4);
+	#pragma omp parallel private ( a ) 
+	{
+		int id;
+		int nthr;
+		char *arquivoentrada = malloc(100);
+		id = omp_get_thread_num();
+		nthr = omp_get_num_threads();
+		FILE *arqin;
+	    printf("\n***** %d ****\n",id);
+		
+		for(a=id;a<num_arquivos;a+=nthr){	
+			printf("\n %d - %d - %d -> %d\n",id,nthr,a,num_arquivos);
+			//num_imagem++;
 
-			arqin = fopen(arquivoentrada,"rb");
+				strcpy(arquivoentrada, direntrada);
+printf("\n  101 ");
+				strcat(arquivoentrada,"/");
+printf("\n  102 - %d",a);
+				strcat(arquivoentrada,arquivos[a].d_name);
+printf("\n  111- %s",arquivoentrada);
+				arqin = fopen(arquivoentrada,"rb");
 
-			//valida se o arquivo de entrada existe
-			if(arqin==NULL)  printf("Erro na leitura do arquivo.");
+				//valida se o arquivo de entrada existe
+				if(arqin==NULL)  printf("Erro na leitura do arquivo.");
 
-			//arquivo de saida
-			arqout = fopen("novo","wb");
+				//Busca dados do cabeçalho da imagem e grama em estrutura
+				Cabecalho *cabecalho = malloc(sizeof(Cabecalho));
 
-			//Busca dados do cabeçalho da imagem e grama em estrutura
-			Cabecalho *cabecalho = malloc(sizeof(Cabecalho));
+				fseek(arqin,14,SEEK_SET);
+				fread(&(*cabecalho).tam_cabecalho	,4,1,arqin);
+				fseek(arqin,18,SEEK_SET);
+				fread(&(*cabecalho).largura_img		,4,1,arqin);
+				fseek(arqin,22,SEEK_SET);
+				fread(&(*cabecalho).altura_img		,4,1,arqin);
+				fseek(arqin,26,SEEK_SET);
 
-			fseek(arqin,14,SEEK_SET);
-			fread(&(*cabecalho).tam_cabecalho	,4,1,arqin);
-			fseek(arqin,18,SEEK_SET);
-			fread(&(*cabecalho).largura_img		,4,1,arqin);
-			fseek(arqin,22,SEEK_SET);
-			fread(&(*cabecalho).altura_img		,4,1,arqin);
-			fseek(arqin,26,SEEK_SET);
-			
-			fseek(arqin,50,SEEK_SET);
-			fread(&(*cabecalho).num_cores_imp	,4,1,arqin);
-			
-			/* ------------------------------------------ */
-			/*  Monta dados da imagem lida em uma Struct  */
-			/* ------------------------------------------ */
+				fseek(arqin,50,SEEK_SET);
+				fread(&(*cabecalho).num_cores_imp	,4,1,arqin);
 
-			int lin =0,col=0;
-			
-			Pixel **imagem;
-			imagem  = monta_imagem_lida_struct (arqin,&(*cabecalho));
-			
-			lin = (*cabecalho).altura_img;
-			col = (*cabecalho).largura_img;			
+				/* ------------------------------------------ */
+				/*  Monta dados da imagem lida em uma Struct  */
+				/* ------------------------------------------ */
 
-			/* ------------------------------- */
-			/*  Transforma para tons de cinza  */
-			/* ------------------------------- */
-			
-			transforma_tons_de_cinza ( histograma, &tot_pixels,&(*cabecalho), &(*imagem));		
+				int lin =0,col=0;
 
-			/* ---------------------------------------------- */
-			/*  Cálula o valor limear para converter para PB  */
-			/* ---------------------------------------------- */
-			//Algoritmo de Otsu		
-			int ind_WCV = 0;
-			
-			ind_WCV  = algoritmo_otsu(histograma,tot_pixels);			
-			printf("Limear-> %d - %d\n",ind_WCV,num_imagem);
+				Pixel **imagem;
+				imagem  = monta_imagem_lida_struct (arqin,&(*cabecalho));
 
-			/* ----------------------------------------- */
-			/*  Segmentação da Imagem em Preto e Branco  */
-			/* ----------------------------------------- */
-			
-			segmentacao_preto_e_branco (ind_WCV, &(*cabecalho), &(*imagem));					
+				lin = (*cabecalho).altura_img;
+				col = (*cabecalho).largura_img;			
 
-			/* ------------------------------- */
-			/* 	 Busca Limite superior     */
-			/* ------------------------------- */
+				/* ------------------------------- */
+				/*  Transforma para tons de cinza  */
+				/* ------------------------------- */
 
-			int limite_sup = calcula_limite_superior ( &(*cabecalho), &(*imagem));
-			
-			/* ------------------------------- */
-			/* 	 Busca Limite inferior     */
-			/* ------------------------------- */
+				transforma_tons_de_cinza ( histograma, &tot_pixels,&(*cabecalho), &(*imagem));		
 
-			int limite_inf = calcula_limite_inferior ( &(*cabecalho), &(*imagem));			
+				/* ---------------------------------------------- */
+				/*  Cálula o valor limear para converter para PB  */
+				/* ---------------------------------------------- */
+				//Algoritmo de Otsu		
+				int ind_WCV = 0;
 
-			/* ----------------------------------------- */
-			/*  Monta matriz com informalções de nos     */
-			/* ----------------------------------------- */
+				ind_WCV  = algoritmo_otsu(histograma,tot_pixels);			
+				//printf("Limear-> %d - %d\n",ind_WCV,num_imagem);
 
-			qtde_nos         = 0;
-			
-			int **matriz_nos;
-			
-			matriz_nos = (int**) calloc((*cabecalho).altura_img , sizeof(int*));
-			for (i = 0; i < (*cabecalho).altura_img; i++) {
-				matriz_nos[i] = (int*) calloc((*cabecalho).largura_img , sizeof(int));
+				/* ----------------------------------------- */
+				/*  Segmentação da Imagem em Preto e Branco  */
+				/* ----------------------------------------- */
+
+				segmentacao_preto_e_branco (ind_WCV, &(*cabecalho), &(*imagem));					
+
+				/* ------------------------------- */
+				/* 	 Busca Limite superior     */
+				/* ------------------------------- */
+
+				int limite_sup = calcula_limite_superior ( &(*cabecalho), &(*imagem));
+
+				/* ------------------------------- */
+				/* 	 Busca Limite inferior     */
+				/* ------------------------------- */
+
+				int limite_inf = calcula_limite_inferior ( &(*cabecalho), &(*imagem));			
+
+				/* ----------------------------------------- */
+				/*  Monta matriz com informalções de nos     */
+				/* ----------------------------------------- */
+
+				qtde_nos         = 0;
+
+				int **matriz_nos;
+
+				matriz_nos = (int**) calloc((*cabecalho).altura_img , sizeof(int*));
+				int i;
+				for (i = 0; i < (*cabecalho).altura_img; i++) {
+					matriz_nos[i] = (int*) calloc((*cabecalho).largura_img , sizeof(int));
+				}
+
+				monta_matriz_nos (&(*cabecalho), &(*imagem), &(*matriz_nos),&qtde_nos,limite_sup,limite_inf);
+
+
+				/* ----------------------------------------- */
+				/*     Refina os dados de nós encontrados    */
+				/* ----------------------------------------- */
+				//se tem um nó ao ao redor, com númeração menor, assume a menor numeração - para casos onde não é possivel identificar o nó proximo pelo algoritmo principal
+
+				refinamento_dados_nos(&(*cabecalho), &(*imagem), &(*matriz_nos));
+
+
+				/* ----------------------------------------- */
+				/*  Calcula informações e o centro dos nós   */
+				/* ----------------------------------------- */
+
+				Inf_nos *informacoes_nos = malloc(sizeof(Inf_nos) * 1);			
+				informacoes_nos = realloc(informacoes_nos, qtde_nos * sizeof(Inf_nos));
+				int qtde_nos_finais = 0;
+
+				//printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
+				calcula_informacoes_nos(&(*cabecalho),&(*matriz_nos),informacoes_nos,&qtde_nos_finais,qtde_nos);
+				//printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
+				/* ---------------------------------------------- */
+				/*  Escreve dados na imagem no arquivo de saída   */
+				/* ---------------------------------------------- */
+				
+			#pragma omp critical
+			{
+			    escrevesaida(txtsaida, arquivoentrada,limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
 			}
-			
-			monta_matriz_nos (&(*cabecalho), &(*imagem), &(*matriz_nos),&qtde_nos,limite_sup,limite_inf);
-			
-			
-			/* ----------------------------------------- */
-			/*     Refina os dados de nós encontrados    */
-			/* ----------------------------------------- */
-			//se tem um nó ao ao redor, com númeração menor, assume a menor numeração - para casos onde não é possivel identificar o nó proximo pelo algoritmo principal
-			
-			refinamento_dados_nos(&(*cabecalho), &(*imagem), &(*matriz_nos));
-			
-			
-			/* ----------------------------------------- */
-			/*  Calcula informações e o centro dos nós   */
-			/* ----------------------------------------- */
-			
-			Inf_nos *informacoes_nos = malloc(sizeof(Inf_nos) * 1);			
-			informacoes_nos = realloc(informacoes_nos, qtde_nos * sizeof(Inf_nos));
-			int qtde_nos_finais = 0;
-			
-			printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
-			calcula_informacoes_nos(&(*cabecalho),&(*matriz_nos),informacoes_nos,&qtde_nos_finais,qtde_nos);
-			printf("qtde_nos-> %d qtde_nos_finais->%d\n",qtde_nos,qtde_nos_finais);
-			/* ---------------------------------------------- */
-			/*  Escreve dados na imagem no arquivo de saída   */
-			/* ---------------------------------------------- */
-			
-			escrevesaida(txtsaida, arquivoentrada,limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
+				//Liberação de memória 
+				free(informacoes_nos);
+				free(cabecalho);
+				free(*imagem);	
+				free(imagem);	
+				free(*matriz_nos);
+				free(matriz_nos);
+				fclose(arqin);		
 
-			//Liberação de memória 
-			free(informacoes_nos);
-			free(cabecalho);
-		   	free(*imagem);	
-			free(imagem);	
-			free(*matriz_nos);
-			free(matriz_nos);
-			fclose(arqin);		
-			
+
 		}
+	
 	}
 	closedir(dir);
 	fclose(txtsaida);
@@ -666,5 +722,4 @@ int main(){
 	//ProfilerStop();
 	return 0;
 }
-
 
