@@ -421,7 +421,7 @@
 		}		
 	}
 
-	void expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf)
+	/*void expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf)
 	{
 		int i,j,l,c;
 		for(i=0;i<(*cabecalho).altura_img;i++){
@@ -454,7 +454,7 @@
 				}
 			}
 	}
-
+	*/
 
 	void refinamento_dados_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos)
 	{
@@ -578,8 +578,48 @@
 					informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
 			   		informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;			   
 				}
+				
+				/*//Verifica se não tem nó proximo que possa ser considerado  o mesmo
+				if (informacoes_nos[i].centro_vertical > 0)
+				{
+					for(j=0;j<qtde_nos;j++)
+					{
+						if(i!=j)
+						{
+							int proximidade_mesmo_no = 3;
+							if( (informacoes_nos[i].max_vertical -  informacoes_nos[j].min_vertical) < proximidade_mesmo_no &&  (informacoes_nos[i].max_horizontal -  informacoes_nos[j].min_horizontal) < proximidade_mesmo_no)
+							{
+								informacoes_nos[j].centro_vertical   = 0;
+			   					informacoes_nos[j].centro_horizontal = 0;
+								informacoes_nos[j].min_vertical		= 0;
+								informacoes_nos[j].max_vertical		= 0;
+								informacoes_nos[j].max_horizontal	= 0;
+								informacoes_nos[j].min_horizontal	= 0; 
+							}
+						}
+					}
+				}*/	
+				
 			}
 
+			
+			//Verifica se não tem nó proximo que possa ser considerado  o mesmo
+			for(i=0;i<qtde_nos;i++)
+			{
+				for(j=0;j<qtde_nos;j++)
+				{
+					if(informacoes_nos[i].centro_vertical > 0 && informacoes_nos[j].centro_vertical > 0 && i != j )
+					{
+						int proximidade_mesmo_no = 20;
+						if( (abs(informacoes_nos[i].centro_vertical -  informacoes_nos[j].centro_vertical)  +  abs(informacoes_nos[i].centro_horizontal -  informacoes_nos[j].centro_horizontal)) < proximidade_mesmo_no)
+						{
+							informacoes_nos[j].centro_vertical   = 0;
+							informacoes_nos[j].centro_horizontal = 0;
+						}
+					}
+				}
+			}
+		
 			//Conta quantos nós existem após o refinamento
 			*qtde_nos_finais =0;
 			for(i=0;i<qtde_nos;i++)
@@ -665,15 +705,16 @@ int main(){
 	char arquivoentrada[1000];
 	strcpy(arquivoentrada,caminhos[a]);	
 	//while ( ( lsdir = readdir(dir) ) != NULL ) {
+	FILE *arqin;
 	omp_set_num_threads(4);
-	#pragma omp parallel private ( a ,histograma,qtde_nos,tot_pixels,arquivoentrada) 
+	#pragma omp parallel private ( a ,histograma,qtde_nos,tot_pixels,arquivoentrada,arqin) 
 	{
 		int id;
 		int nthr;
 		
 		id = omp_get_thread_num();
 		nthr = omp_get_num_threads();
-		FILE *arqin;
+		
 	    
 		for(a=id;a<num_arquivos;a+=nthr){	
 			printf("\n***** %d ****\n",id);
@@ -682,7 +723,7 @@ int main(){
 			
 				printf("\n  Processando Imagem-> %d - %s",a,caminhos[a]);
 				arqin = fopen(caminhos[a],"rb");
-
+				printf("\n  Abriu imagem-> %d - %s",a,caminhos[a]);
 				//valida se o arquivo de entrada existe
 				if(arqin==NULL)  printf("Erro na leitura do arquivo.");
 
@@ -800,7 +841,7 @@ int main(){
 				free(imagem);	
 				free(*matriz_nos);
 				free(matriz_nos);
-				fclose(arqin);		
+				fclose(arqin);
 
 
 		}
