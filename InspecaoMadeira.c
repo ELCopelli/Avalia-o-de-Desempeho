@@ -289,6 +289,24 @@
 			}
 		}
 		
+		for(i=limite_sup;i>0;i--)
+		{
+			int qtde_pontos = 0;
+			for(j=0;j<(*cabecalho).largura_img;j++){
+				if((imagem[(*cabecalho).altura_img-1-i][j]).r == 0 && (imagem[(*cabecalho).altura_img-1-i-1][j]).r == 255) {
+					qtde_pontos++;
+					}
+			}
+			
+		    if(qtde_pontos > 6)
+			{
+					limite_sup = i + 1;
+					break;
+			}
+				   
+		}
+		
+		
 		return limite_sup;
 	}
 
@@ -308,6 +326,23 @@
 				limite_inf = i;
 				break;
 			}
+		}
+	
+		for(i=limite_inf;i<(*cabecalho).altura_img;i++)
+		{
+			int qtde_pontos = 0;
+			for(j=0;j<(*cabecalho).largura_img;j++){
+				if((imagem[(*cabecalho).altura_img-1-i][j]).r == 0 && (imagem[(*cabecalho).altura_img-1-i-1][j]).r == 255) {
+					qtde_pontos++;
+					}
+			}
+			
+		    if(qtde_pontos > 6)
+			{
+					limite_inf = i - 1;
+					break;
+			}
+				   
 		}
 		
 		return limite_inf;
@@ -386,8 +421,43 @@
 		}		
 	}
 
+	void expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf)
+	{
+		int i,j,l,c;
+		for(i=0;i<(*cabecalho).altura_img;i++){
+			for(j=0;j<(*cabecalho).largura_img;j++){
+					int menor_no      = 9999;
+				    int qtde_marcados = 0;
+					if (i > limite_sup && i < limite_inf && i > 0 && j > 0 && i < (*cabecalho).altura_img-1 && j < (*cabecalho).largura_img - 1){
+						
+						for(l=i-1;l<i+2;l++)
+						{
+						 	for(c=j-1;c<j+2;c++)
+							{
+								if(( (matriz_nos[l][c] > 0)) )
+								{
+									menor_no = (matriz_nos[l][c]);
+								}
 
-	void refinamento_dados_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos){
+								if(imagem[l][c].r ==0){
+									qtde_marcados++;
+								}
+							}
+						}
+						if(qtde_marcados > 0 && menor_no != 9999)
+						{
+							(matriz_nos[i][j]) = menor_no;
+						}
+						
+					}
+					
+				}
+			}
+	}
+
+
+	void refinamento_dados_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos)
+	{
 		int i,j;
 		for(i=(*cabecalho).altura_img-1;i>=0;i--){
 				for(j=(*cabecalho).largura_img-1;j>=0;j--){
@@ -496,7 +566,7 @@
 			{
 			   
 				//desconsidera informações pequenas, com menos de x pixels
-				int num_pixel_desc = 2;
+				int num_pixel_desc = 4;
 				if(		( informacoes_nos[i].max_vertical - informacoes_nos[i].min_vertical) <= num_pixel_desc
 				   ||	( informacoes_nos[i].max_horizontal - informacoes_nos[i].min_horizontal) <= num_pixel_desc)
 				{
@@ -557,7 +627,8 @@ int main(){
 	
 	//atribui os arquivos para o vetor de arquivos
 	int num_arquivos=0;
-	struct dirent *arquivos = malloc(sizeof(struct dirent) * 1);			
+	struct dirent *arquivos = malloc(sizeof(struct dirent) * 1);
+	
     
 	while ( ( lsdir = readdir(dir) ) != NULL ) {
 		if ( !strcmp(lsdir->d_name, ".") || !strcmp(lsdir->d_name, "..") ){
@@ -567,35 +638,50 @@ int main(){
 			num_arquivos++;
 			arquivos = realloc(arquivos, num_arquivos * sizeof(struct dirent));
 			arquivos[num_arquivos-1]=*lsdir;
-			printf("\nalocando-> %d %s",num_arquivos,arquivos[num_arquivos-1].d_name);
+			//printf("\nalocando-> %d %s",num_arquivos-1,arquivos[num_arquivos-1].d_name);
 		}
 	}
 	
+	char caminhos[1000][1000];
+
+	int c;		
+
+	//caminhos = (char**) calloc(num_arquivos , sizeof(char));
+
+	for (c = 0; c < num_arquivos; c++) {
+		//caminhos[c] = (char*) calloc(100 , sizeof(char));
+		char caminho[1000];
+		strcpy(caminho, direntrada);
+		strcat(caminho,"/");
+		strcat(caminho,arquivos[c].d_name);
+		strcat(caminho,"\0");
+		strcpy(caminhos[c],caminho);
+		//printf("caminho %d -> %s\n ",c,caminhos[c]);
+	}
 	
-		
+	
+	
+	
+	char arquivoentrada[1000];
+	strcpy(arquivoentrada,caminhos[a]);	
 	//while ( ( lsdir = readdir(dir) ) != NULL ) {
 	omp_set_num_threads(4);
-	#pragma omp parallel private ( a ) 
+	#pragma omp parallel private ( a ,histograma,qtde_nos,tot_pixels,arquivoentrada) 
 	{
 		int id;
 		int nthr;
-		char *arquivoentrada = malloc(100);
+		
 		id = omp_get_thread_num();
 		nthr = omp_get_num_threads();
 		FILE *arqin;
-	    printf("\n***** %d ****\n",id);
-		
+	    
 		for(a=id;a<num_arquivos;a+=nthr){	
-			printf("\n %d - %d - %d -> %d\n",id,nthr,a,num_arquivos);
-			//num_imagem++;
-
-				strcpy(arquivoentrada, direntrada);
-printf("\n  101 ");
-				strcat(arquivoentrada,"/");
-printf("\n  102 - %d",a);
-				strcat(arquivoentrada,arquivos[a].d_name);
-printf("\n  111- %s",arquivoentrada);
-				arqin = fopen(arquivoentrada,"rb");
+			printf("\n***** %d ****\n",id);
+			int i = 0;
+			
+			
+				printf("\n  Processando Imagem-> %d - %s",a,caminhos[a]);
+				arqin = fopen(caminhos[a],"rb");
 
 				//valida se o arquivo de entrada existe
 				if(arqin==NULL)  printf("Erro na leitura do arquivo.");
@@ -668,21 +754,25 @@ printf("\n  111- %s",arquivoentrada);
 				int **matriz_nos;
 
 				matriz_nos = (int**) calloc((*cabecalho).altura_img , sizeof(int*));
-				int i;
+	
 				for (i = 0; i < (*cabecalho).altura_img; i++) {
 					matriz_nos[i] = (int*) calloc((*cabecalho).largura_img , sizeof(int));
 				}
 
 				monta_matriz_nos (&(*cabecalho), &(*imagem), &(*matriz_nos),&qtde_nos,limite_sup,limite_inf);
-
-
+                
+				//expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf);
+				//printf("\nantes exoandiu");
+				//expande_nos(&(*cabecalho), &(*imagem), &(*matriz_nos),limite_sup,limite_inf);	
+				//printf("\nexoandiu");
+			
 				/* ----------------------------------------- */
 				/*     Refina os dados de nós encontrados    */
 				/* ----------------------------------------- */
 				//se tem um nó ao ao redor, com númeração menor, assume a menor numeração - para casos onde não é possivel identificar o nó proximo pelo algoritmo principal
 
 				refinamento_dados_nos(&(*cabecalho), &(*imagem), &(*matriz_nos));
-
+				refinamento_dados_nos(&(*cabecalho), &(*imagem), &(*matriz_nos));
 
 				/* ----------------------------------------- */
 				/*  Calcula informações e o centro dos nós   */
@@ -699,10 +789,10 @@ printf("\n  111- %s",arquivoentrada);
 				/*  Escreve dados na imagem no arquivo de saída   */
 				/* ---------------------------------------------- */
 				
-			#pragma omp critical
-			{
-			    escrevesaida(txtsaida, arquivoentrada,limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
-			}
+				#pragma omp critical
+				{
+					escrevesaida(txtsaida, caminhos[a],limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
+				}
 				//Liberação de memória 
 				free(informacoes_nos);
 				free(cabecalho);
@@ -718,7 +808,7 @@ printf("\n  111- %s",arquivoentrada);
 	}
 	closedir(dir);
 	fclose(txtsaida);
-	printf("Processamento dos arquivos finalizado! \n");
+	printf("\nProcessamento dos arquivos finalizado! \n");
 	//ProfilerStop();
 	return 0;
 }
