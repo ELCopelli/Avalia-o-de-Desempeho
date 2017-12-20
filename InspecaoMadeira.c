@@ -5,7 +5,14 @@
 #include<omp.h>
 #include <gperftools/profiler.h>
 
-#define NTHREADS 2
+#define NTHREADS 4
+
+/*********************************************************************************************
+ **							Sistema de inspeção Automática de Madeira
+ **		Alunos:
+ **		-Éderson Luis Copelli 	(elcopelli@ucs.br)
+ **		-Gustavo Pistore		(gpistore1@ucs.br)
+ *********************************************************************************************/
 
 	typedef struct pixel{
 		unsigned char r;
@@ -72,11 +79,7 @@
 
 		int lin =0,col=0;
 		int id, nthr;
-		//#pragma omp parallel private (red,green,blue,lin,col) 
-		//{
-		//	fseek(arqin,54,SEEK_SET);
-		//	id = omp_get_thread_num();
-		//	nthr = omp_get_num_threads();
+
 			while(fread(&red,sizeof(blue),1,arqin)!=0)
 			{
 				fread(&green,sizeof(green),1,arqin);
@@ -93,33 +96,6 @@
 					col=0;
 				}
 			}
-		//}
-				
-		
-		/*#pragma omp parallel private (i, j,red,green,blue) 
-		{
-			fseek(arqin,54,SEEK_SET);
-			id = omp_get_thread_num();
-			nthr = omp_get_num_threads();
-		    
-			int altura_ini;
-			int altura_fin;*
-		
-			for (i = 0; i < (*cabecalho).altura_img; i++) {
-				for (j = 0; j < (*cabecalho).largura_img; j++) {
-					//	fseek(arqin,53+(sizeof(blue)*(i*((*cabecalho).largura_img*3)+j)),SEEK_SET);	
-					fread(&red,sizeof(blue),1,arqin);
-					fread(&green,sizeof(green),1,arqin);
-					fread(&blue,sizeof(red),1,arqin);
-					(imagem[i][j]).r = red;
-					(imagem[i][j]).g = green;
-					(imagem[i][j]).b = blue;
-				}
-			}
-		/*	printf("%d / %d \n",id, nthr);
-		
-		}*/
-		
 
 		return imagem;	
 
@@ -138,8 +114,6 @@
 		
 		(*tot_pixels) = (*cabecalho).altura_img * (*cabecalho).largura_img;
 		
-		//omp_set_num_threads(NTHREADS);
-		//#pragma omp parallel for
 		for(i=0;i<(*cabecalho).altura_img;i++){
 			for(j=0;j<(*cabecalho).largura_img;j++){
 					
@@ -289,6 +263,7 @@
 			}
 		}
 		
+		//Tratamenro para considerar informações de nos de limites
 		for(i=limite_sup;i>0;i--)
 		{
 			int qtde_pontos = 0;
@@ -327,8 +302,8 @@
 				break;
 			}
 		}
-	
-		for(i=limite_inf;i<(*cabecalho).altura_img;i++)
+		//Tratamenro para considerar informações de nos de limites
+		for(i=limite_inf;i<(*cabecalho).altura_img-1;i++)
 		{
 			int qtde_pontos = 0;
 			for(j=0;j<(*cabecalho).largura_img;j++){
@@ -420,41 +395,6 @@
 			}
 		}		
 	}
-
-	/*void expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf)
-	{
-		int i,j,l,c;
-		for(i=0;i<(*cabecalho).altura_img;i++){
-			for(j=0;j<(*cabecalho).largura_img;j++){
-					int menor_no      = 9999;
-				    int qtde_marcados = 0;
-					if (i > limite_sup && i < limite_inf && i > 0 && j > 0 && i < (*cabecalho).altura_img-1 && j < (*cabecalho).largura_img - 1){
-						
-						for(l=i-1;l<i+2;l++)
-						{
-						 	for(c=j-1;c<j+2;c++)
-							{
-								if(( (matriz_nos[l][c] > 0)) )
-								{
-									menor_no = (matriz_nos[l][c]);
-								}
-
-								if(imagem[l][c].r ==0){
-									qtde_marcados++;
-								}
-							}
-						}
-						if(qtde_marcados > 0 && menor_no != 9999)
-						{
-							(matriz_nos[i][j]) = menor_no;
-						}
-						
-					}
-					
-				}
-			}
-	}
-	*/
 
 	void refinamento_dados_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos)
 	{
@@ -578,28 +518,7 @@
 					informacoes_nos[i].centro_vertical   = (informacoes_nos[i].min_vertical   + informacoes_nos[i].max_vertical) / 2;
 			   		informacoes_nos[i].centro_horizontal = (informacoes_nos[i].min_horizontal + informacoes_nos[i].max_horizontal) / 2;			   
 				}
-				
-				/*//Verifica se não tem nó proximo que possa ser considerado  o mesmo
-				if (informacoes_nos[i].centro_vertical > 0)
-				{
-					for(j=0;j<qtde_nos;j++)
-					{
-						if(i!=j)
-						{
-							int proximidade_mesmo_no = 3;
-							if( (informacoes_nos[i].max_vertical -  informacoes_nos[j].min_vertical) < proximidade_mesmo_no &&  (informacoes_nos[i].max_horizontal -  informacoes_nos[j].min_horizontal) < proximidade_mesmo_no)
-							{
-								informacoes_nos[j].centro_vertical   = 0;
-			   					informacoes_nos[j].centro_horizontal = 0;
-								informacoes_nos[j].min_vertical		= 0;
-								informacoes_nos[j].max_vertical		= 0;
-								informacoes_nos[j].max_horizontal	= 0;
-								informacoes_nos[j].min_horizontal	= 0; 
-							}
-						}
-					}
-				}*/	
-				
+								
 			}
 
 			
@@ -655,7 +574,7 @@ int main(){
 	//arquivo de entrada
 	printf("Digite o nome do diretorio: \n");
 	//scanf("%s",direntrada);
-	direntrada = "imagens1"; // CAMINHO DA IMAGEM FIXO PARA TESTES
+	direntrada = "validos"; // CAMINHO DA IMAGEM FIXO PARA TESTES
 	dir = opendir(direntrada);
 	printf("Processando as imagens no diretorio %s \n",direntrada);
 	//arquivo de saída
@@ -706,7 +625,7 @@ int main(){
 	strcpy(arquivoentrada,caminhos[a]);	
 	//while ( ( lsdir = readdir(dir) ) != NULL ) {
 	FILE *arqin;
-	omp_set_num_threads(4);
+	omp_set_num_threads(NTHREADS);
 	#pragma omp parallel private ( a ,histograma,qtde_nos,tot_pixels,arquivoentrada,arqin) 
 	{
 		int id;
@@ -717,13 +636,13 @@ int main(){
 		
 	    
 		for(a=id;a<num_arquivos;a+=nthr){	
-			printf("\n***** %d ****\n",id);
+			//printf("\n\nThread ***** %d ****",id);
 			int i = 0;
 			
 			
-				printf("\n  Processando Imagem-> %d - %s",a,caminhos[a]);
+				//printf("\n  Processando Imagem-> %d - %s",a,caminhos[a]);
 				arqin = fopen(caminhos[a],"rb");
-				printf("\n  Abriu imagem-> %d - %s",a,caminhos[a]);
+				//printf("\n  Abriu imagem-> %d - %s",a,caminhos[a]);
 				//valida se o arquivo de entrada existe
 				if(arqin==NULL)  printf("Erro na leitura do arquivo.");
 
@@ -776,7 +695,7 @@ int main(){
 
 				/* ------------------------------- */
 				/* 	 Busca Limite superior     */
-				/* ------------------------------- */
+				/* -------------------------------*/
 
 				int limite_sup = calcula_limite_superior ( &(*cabecalho), &(*imagem));
 
@@ -802,11 +721,6 @@ int main(){
 
 				monta_matriz_nos (&(*cabecalho), &(*imagem), &(*matriz_nos),&qtde_nos,limite_sup,limite_inf);
                 
-				//expande_nos(Cabecalho *cabecalho,Pixel **imagem, int **matriz_nos,int limite_sup,int limite_inf);
-				//printf("\nantes exoandiu");
-				//expande_nos(&(*cabecalho), &(*imagem), &(*matriz_nos),limite_sup,limite_inf);	
-				//printf("\nexoandiu");
-			
 				/* ----------------------------------------- */
 				/*     Refina os dados de nós encontrados    */
 				/* ----------------------------------------- */
@@ -834,6 +748,7 @@ int main(){
 				{
 					escrevesaida(txtsaida, caminhos[a],limite_sup,limite_inf,qtde_nos,qtde_nos_finais,informacoes_nos);
 				}
+			
 				//Liberação de memória 
 				free(informacoes_nos);
 				free(cabecalho);
